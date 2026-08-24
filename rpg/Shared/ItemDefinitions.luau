@@ -1,0 +1,21 @@
+--!strict
+return {
+	TrainingBlade = { Name = "Lâmina de Treino", Type = "Weapon", Rarity = "Common", Level = 1, Power = 7, Price = 80, Description = "Uma espada confiável para novos aventureiros." },
+	SteelSword = { Name = "Espada de Aço", Type = "Weapon", Rarity = "Uncommon", Level = 5, Power = 18, Price = 300, Description = "Aço equilibrado, bom para qualquer confronto." },
+	HeroGauntlets = { Name = "Manoplas de Herói", Type = "Weapon", Rarity = "Rare", Level = 12, Power = 34, Price = 950, Description = "Amplificam golpes de curta distância." },
+	ArcaneFocus = { Name = "Foco Arcano", Type = "Weapon", Rarity = "Rare", Level = 10, Power = 29, Price = 780, Description = "Concentra energia para habilidades especiais." },
+	EclipseBlade = { Name = "Lâmina do Eclipse", Type = "Weapon", Rarity = "Legendary", Level = 30, Power = 86, Price = 5200, Description = "Uma relíquia forjada entre luz e sombra." },
+	StarterVest = { Name = "Colete de Recruta", Type = "Armor", Rarity = "Common", Level = 1, Defense = 4, Price = 65, Description = "Proteção básica para missões iniciais." },
+	ReinforcedArmor = { Name = "Armadura Reforçada", Type = "Armor", Rarity = "Uncommon", Level = 6, Defense = 14, Price = 350, Description = "Placas resistentes para o campo de batalha." },
+	HeroMantle = { Name = "Manto do Herói", Type = "Armor", Rarity = "Epic", Level = 20, Defense = 42, Price = 2300, Description = "Símbolo de alguém que venceu batalhas impossíveis." },
+	LuckyCharm = { Name = "Amuleto da Sorte", Type = "Accessory", Rarity = "Uncommon", Level = 3, Luck = 3, Price = 240, Description = "Aumenta suas chances de encontrar tesouros." },
+	AuroraPendant = { Name = "Pingente da Aurora", Type = "Accessory", Rarity = "Epic", Level = 15, Intelligence = 6, Vitality = 3, Price = 1800, Description = "Fragmento luminoso de uma energia desconhecida." },
+	HealthPotion = { Name = "Poção de Vida", Type = "Consumable", Rarity = "Common", Heal = 60, Price = 35, Stack = 20, Description = "Restaura uma parte da sua vida." },
+	GreaterHealthPotion = { Name = "Poção Superior", Type = "Consumable", Rarity = "Uncommon", Heal = 160, Price = 110, Stack = 15, Description = "Restaura uma grande quantidade de vida." },
+	ManaPotion = { Name = "Poção de Foco", Type = "Consumable", Rarity = "Common", RestoreMana = 55, Price = 40, Stack = 20, Description = "Recupera energia para usar habilidades." },
+	StaminaPotion = { Name = "Tônico de Vigor", Type = "Consumable", Rarity = "Common", RestoreStamina = 70, Price = 38, Stack = 20, Description = "Restaura vigor instantaneamente." },
+	IronOre = { Name = "Minério de Ferro", Type = "Material", Rarity = "Common", Price = 12, Stack = 99, Description = "Usado para criar e aprimorar equipamentos." },
+	AuroraShard = { Name = "Fragmento da Aurora", Type = "Material", Rarity = "Rare", Price = 85, Stack = 99, Description = "Energia antiga cristalizada após a Fratura." },
+	BossCore = { Name = "Núcleo de Chefe", Type = "Material", Rarity = "Epic", Price = 420, Stack = 25, Description = "Material raro obtido ao derrotar um chefe." },
+	AncientRelic = { Name = "Relíquia Ancestral", Type = "Relic", Rarity = "Legendary", Price = 2400, Description = "Uma relíquia que guarda memórias esquecidas." },
+}

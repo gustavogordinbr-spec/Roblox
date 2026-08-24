@@ -212,3 +212,9 @@ Criar o arquivo .rbxl inicial com a estrutura acima, um mapa de teste em Vila L�
 **entrar > atacar > receber recompensa > salvar > sair > entrar novamente com o progresso mantido.**
 
 Esse é o primeiro pedaço que precisa ficar sólido antes de crescer o mundo.
+
+## Implementação atual: Quirkbound RPG
+
+A pasta [rpg](rpg/README.md) contém a camada completa de RPG integrada ao mapa original Quirkbound, com classes, habilidades, progressão, inventário, missões, crafting, conquistas, grupos multiplayer e interface.
+
+O arquivo `.rbxl` preserva todos os modelos e efeitos do mapa original. Os scripts versionados neste repositório correspondem à versão incorporada ao arquivo.
