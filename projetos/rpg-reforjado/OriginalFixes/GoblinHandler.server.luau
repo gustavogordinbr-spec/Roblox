@@ -15,7 +15,10 @@ local function monitor(model: Instance)
 	hooked[humanoid] = humanoid.Died:Connect(function()
 		local creator = humanoid:FindFirstChild("creator")
 		local player = creator and creator.Value
-		if player and player:IsA("Player") and Players:GetPlayerByUserId(player.UserId) then QuestService.ProgressActive(player, "Goblin", 1) end
+		if player and player:IsA("Player") and Players:GetPlayerByUserId(player.UserId) and not humanoid:GetAttribute("QuestProgressCredited") then
+			humanoid:SetAttribute("QuestProgressCredited", true)
+			QuestService.ProgressActive(player, "Goblin", 1)
+		end
 		if hooked[humanoid] then hooked[humanoid]:Disconnect(); hooked[humanoid] = nil end
 	end)
 end

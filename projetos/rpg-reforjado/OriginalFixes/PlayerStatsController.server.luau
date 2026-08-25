@@ -29,14 +29,15 @@ local function apply(player: Player)
 		for key, value in pairs(class.Multiplicadores or {}) do multipliers[key] = (multipliers[key] or 1) * value end
 	end
 	local base = Stats.CalcularBase(Stats.LevelComLimitador(level, limiter), multipliers, limiter)
-	for _, stat in ipairs({"Forca", "Agilidade", "Vitalidade", "Energia", "Sorte"}) do
-		base[stat] = (base[stat] or 0) + math.clamp(tonumber(player:GetAttribute("Allocated_" .. stat)) or 0, 0, 250)
-	end
+	-- Todos os atributos crescem exclusivamente com o nível, a raça e a classe.
 	local derived = Stats.CalcularDerivados(base, player)
+	derived.VidaMax = math.max(1, math.floor(derived.VidaMax * (multipliers.Vida or 1)))
 	derived.DanoBaseFisico = math.max(1, math.floor(derived.DanoBaseFisico * (multipliers.Dano or 1)))
 	derived.DanoBaseMagico = math.max(1, math.floor(derived.DanoBaseMagico * (multipliers.DanoMagico or 1)))
 	derived.Defesa = math.max(0, math.floor(derived.Defesa * (multipliers.Defesa or 1)))
 	derived.CriticoChance = math.clamp(derived.CriticoChance * (multipliers.CriticoChance or 1), 0, .8)
+	derived.VidaRegen *= multipliers.VidaRegen or 1
+	derived.EnergiaRegen *= multipliers.EnergiaRegen or 1
 
 	local oldHealth, previousHealthMax = humanoid.Health, humanoid.MaxHealth
 	humanoid.MaxHealth = math.max(1, derived.VidaMax)
@@ -56,6 +57,9 @@ local function apply(player: Player)
 	-- A espada original consulta DanoBase; preservamos essa API de compatibilidade.
 	player:SetAttribute("DanoBase", derived.DanoBaseFisico)
 	player:SetAttribute("DanoMagico", derived.DanoBaseMagico)
+	player:SetAttribute("RacePassive", race.Passiva or "")
+	player:SetAttribute("RaceRarity", race.Raridade or "Comum")
+	player:SetAttribute("RaceAffinity", race.Afinidade or "Equilíbrio")
 	if class then player:SetAttribute("ClassAbility", class.Habilidade); player:SetAttribute("ClassType", class.Tipo) end
 end
 
@@ -71,7 +75,7 @@ local function connect(player: Player)
 	if player:GetAttribute("Raca") == nil then player:SetAttribute("Raca", "Humano") end
 	if player:GetAttribute("Limitador") == nil then player:SetAttribute("Limitador", 100) end
 	connections[player] = {}
-	for _, name in ipairs({"Level", "Raca", "Classe", "Limitador", "Allocated_Forca", "Allocated_Agilidade", "Allocated_Vitalidade", "Allocated_Energia", "Allocated_Sorte"}) do
+	for _, name in ipairs({"Level", "Raca", "Classe", "Limitador"}) do
 		table.insert(connections[player], player:GetAttributeChangedSignal(name):Connect(function() schedule(player) end))
 	end
 	table.insert(connections[player], player.CharacterAdded:Connect(function(character) character:WaitForChild("Humanoid", 10); schedule(player) end))

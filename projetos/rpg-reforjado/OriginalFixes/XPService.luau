@@ -25,7 +25,15 @@ function XPService.LevelUp(player: Player, levelsGained: number?)
 	local actual = current - previous
 	player:SetAttribute("Level", current)
 	player:SetAttribute("PlayerRank", getRank(current))
-	player:SetAttribute("AttributePoints", (player:GetAttribute("AttributePoints") or 0) + actual * 3)
+	player:SetAttribute("LastLevelUpAt", os.time())
+	task.delay(.16, function()
+		if not player.Parent then return end
+		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + humanoid.MaxHealth * .2) end
+		local maximum = player:GetAttribute("EnergiaMax")
+		local energy = player:GetAttribute("Energia")
+		if type(maximum) == "number" and type(energy) == "number" then player:SetAttribute("Energia", math.min(maximum, energy + maximum * .25)) end
+	end)
 	local notifier = game:GetService("ServerStorage"):FindFirstChild("LevelUpNotifier")
 	if notifier and notifier:IsA("BindableEvent") then notifier:Fire(player, previous, current) end
 	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
@@ -39,8 +47,11 @@ function XPService.AddXP(player: Player, amount: number)
 	local level = math.clamp(math.floor(player:GetAttribute("Level") or 1), 1, XPService.MaxLevel)
 	if level >= XPService.MaxLevel then player:SetAttribute("XP", 0); return false end
 	local current = math.max(0, player:GetAttribute("XP") or 0)
-	local newLevel, remaining = XPConfig.CalcularSubidas(level, current + math.min(amount, 100000000))
+	local bonus = math.clamp(tonumber(player:GetAttribute("XPBonus")) or 1, .5, 2)
+	local earned = math.max(1, math.floor(amount * bonus))
+	local newLevel, remaining = XPConfig.CalcularSubidas(level, current + math.min(earned, 100000000))
 	player:SetAttribute("XP", remaining)
+	player:SetAttribute("LastXPGain", earned)
 	if newLevel > level then XPService.LevelUp(player, newLevel - level) end
 	return true
 end
@@ -72,7 +83,6 @@ if RunService:IsServer() then
 		if player:GetAttribute("XP") == nil then player:SetAttribute("XP", 0) end
 		if player:GetAttribute("Dinheiro") == nil then player:SetAttribute("Dinheiro", 0) end
 		if player:GetAttribute("Limitador") == nil then player:SetAttribute("Limitador", 100) end
-		if player:GetAttribute("AttributePoints") == nil then player:SetAttribute("AttributePoints", 0) end
 		if player:GetAttribute("PlayerRank") == nil then player:SetAttribute("PlayerRank", getRank(player:GetAttribute("Level") or 1)) end
 		for name, base in pairs(GameConfig.BaseStats) do
 			if name ~= "Energia" and player:GetAttribute(name) == nil then player:SetAttribute(name, base) end

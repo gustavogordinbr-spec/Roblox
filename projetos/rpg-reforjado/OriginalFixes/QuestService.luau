@@ -33,6 +33,20 @@ local function getData(player: Player)
 	return progressByUser[player.UserId]
 end
 
+local function activate(player: Player, questId: string, progress: number)
+	local quest = QuestService.Quests[questId]
+	if not quest then return false end
+	local current = math.clamp(math.floor(progress), 0, math.max(0, quest.Amount - 1))
+	getData(player)[questId] = {Progress = current, Completed = false}
+	player:SetAttribute("HasActiveQuest", true)
+	player:SetAttribute("ActiveQuestId", questId)
+	player:SetAttribute("ActiveQuestRank", quest.Rank)
+	player:SetAttribute("ActiveQuestProgress", current)
+	player:SetAttribute("QuestStartedAt", os.time())
+	UpdateQuestHUD:FireClient(player, questId, current, quest.Amount)
+	return true
+end
+
 function QuestService.StartQuest(player: Player, questId: string): (boolean, string?)
 	if not RunService:IsServer() or not player or type(questId) ~= "string" then return false, "Missão inválida." end
 	local quest = QuestService.Quests[questId]
@@ -40,13 +54,14 @@ function QuestService.StartQuest(player: Player, questId: string): (boolean, str
 	if player:GetAttribute("HasActiveQuest") then return false, "Conclua sua missão atual primeiro." end
 	if player:GetAttribute(questId .. "_AlreadyCompleted") then return false, "Você já concluiu essa missão." end
 	if (player:GetAttribute("Level") or 1) < quest.MinLevel then return false, "Nível " .. quest.MinLevel .. " necessário." end
-	getData(player)[questId] = {Progress = 0, Completed = false}
-	player:SetAttribute("HasActiveQuest", true)
-	player:SetAttribute("ActiveQuestId", questId)
-	player:SetAttribute("ActiveQuestRank", quest.Rank)
-	player:SetAttribute("ActiveQuestProgress", 0)
-	UpdateQuestHUD:FireClient(player, questId, 0, quest.Amount)
+	activate(player, questId, 0)
 	return true, nil
+end
+
+function QuestService.RestoreQuest(player: Player, questId: string, progress: number?): boolean
+	if not RunService:IsServer() or type(questId) ~= "string" or player:GetAttribute("HasActiveQuest") then return false end
+	if not QuestService.Quests[questId] or player:GetAttribute(questId .. "_AlreadyCompleted") then return false end
+	return activate(player, questId, math.max(0, tonumber(progress) or 0))
 end
 
 function QuestService.UpdateProgress(player: Player, questId: string, amount: number?)
@@ -61,10 +76,13 @@ function QuestService.UpdateProgress(player: Player, questId: string, amount: nu
 	if data.Progress < quest.Amount then return true end
 	data.Completed = true
 	player:SetAttribute(questId .. "_AlreadyCompleted", true)
+	player:SetAttribute(string.gsub(questId, "^quest_", "Quest_") .. "_Completed", true)
+	player:SetAttribute("CompletedQuestCount", (player:GetAttribute("CompletedQuestCount") or 0) + 1)
 	player:SetAttribute("HasActiveQuest", false)
 	player:SetAttribute("ActiveQuestId", nil)
 	player:SetAttribute("ActiveQuestRank", nil)
 	player:SetAttribute("ActiveQuestProgress", nil)
+	player:SetAttribute("QuestStartedAt", nil)
 	XPService.RewardPlayer(player, quest.Reward)
 	QuestCompleted:FireClient(player, questId, quest.Reward)
 	local notification = Remotes:FindFirstChild("RPGNotification")
@@ -77,6 +95,7 @@ function QuestService.ProgressActive(player: Player, target: string, amount: num
 	local quest = questId and QuestService.Quests[questId]
 	if not quest then return false end
 	local wanted, found = string.lower(quest.Target), string.lower(target or "")
+	if found == "" then return false end
 	if wanted ~= found and not string.find(found, wanted, 1, true) and not string.find(wanted, found, 1, true) then return false end
 	return QuestService.UpdateProgress(player, questId, amount)
 end
@@ -88,5 +107,24 @@ function QuestService.GetProgress(player: Player, questId: string): (number, boo
 	return current, completed
 end
 
-if RunService:IsServer() then Players.PlayerRemoving:Connect(function(player) progressByUser[player.UserId] = nil end) end
+if RunService:IsServer() then
+	local function restore(player: Player)
+		local id = player:GetAttribute("RestoredQuestId")
+		if type(id) == "string" and id ~= "" then
+			QuestService.RestoreQuest(player, id, player:GetAttribute("RestoredQuestProgress"))
+			player:SetAttribute("RestoredQuestId", nil)
+			player:SetAttribute("RestoredQuestProgress", nil)
+		end
+	end
+	local function watch(player: Player)
+		if player:GetAttribute("RPGDataLoaded") then task.defer(restore, player); return end
+		local connection
+		connection = player:GetAttributeChangedSignal("RPGDataLoaded"):Connect(function()
+			if player:GetAttribute("RPGDataLoaded") then connection:Disconnect(); restore(player) end
+		end)
+	end
+	Players.PlayerAdded:Connect(watch)
+	for _, player in ipairs(Players:GetPlayers()) do task.defer(watch, player) end
+	Players.PlayerRemoving:Connect(function(player) progressByUser[player.UserId] = nil end)
+end
 return QuestService

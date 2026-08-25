@@ -169,6 +169,8 @@ def enhance(source_path: Path, donor_path: Path, output_path: Path) -> dict:
     animation_folder = add("Folder", "Animations", root)
     add("ModuleScript", "EnhancementConfig", root, "Shared/EnhancementConfig.luau")
     add("ModuleScript", "QuirkMaid", root, "Shared/QuirkMaid.luau")
+    add("ModuleScript", "CharacterAppearance", root, "Shared/CharacterAppearance.luau")
+    add("ModuleScript", "EnemyBrain", root, "Shared/EnemyBrain.luau")
     imported = []
     for name, donor_item in DONOR_ANIMATIONS.items():
         item = assets.get(donor_item)
@@ -179,7 +181,7 @@ def enhance(source_path: Path, donor_path: Path, output_path: Path) -> dict:
         imported.append({"name": name, "source": donor_item, "animation_id": animation_id})
 
     remotes = paths["ReplicatedStorage/Remotes"]
-    for name in ("LevelUp", "RPGNotification", "RPGAction"):
+    for name in ("LevelUp", "RPGNotification", "RPGAction", "CustomizationAction", "CustomizationFeedback"):
         add("RemoteEvent", name, remotes)
     add("RemoteFunction", "RPGRequestState", remotes)
 
@@ -194,11 +196,12 @@ def enhance(source_path: Path, donor_path: Path, output_path: Path) -> dict:
         ("CombatActions", "Server/CombatActions.server.luau"),
         ("NPCEnhancer", "Server/NPCEnhancer.server.luau"),
         ("RPGState", "Server/RPGState.server.luau"),
+        ("CharacterCustomization", "Server/CharacterCustomization.server.luau"),
     ):
         add("Script", name, server, file)
 
     starter = paths["StarterPlayer/StarterPlayerScripts"]
-    add("LocalScript", "RPGEnhancedInterface", starter, "Client/RPGInterface.client.luau")
+    add("LocalScript", "MedievalCharacterClient", starter, "Client/RPGInterface.client.luau")
     add("LocalScript", "QuirkMovement", starter, "Client/QuirkMovement.client.luau")
 
     grouped = defaultdict(list)
@@ -323,16 +326,21 @@ def validate(original_path: Path, modified_path: Path) -> dict:
     required = {
         "ReplicatedStorage/RPGEnhancements/EnhancementConfig",
         "ReplicatedStorage/RPGEnhancements/QuirkMaid",
+        "ReplicatedStorage/RPGEnhancements/CharacterAppearance",
+        "ReplicatedStorage/RPGEnhancements/EnemyBrain",
         "ServerScriptService/RPGEnhancements/SprintController",
         "ServerScriptService/RPGEnhancements/CombatActions",
         "ServerScriptService/RPGEnhancements/NPCEnhancer",
         "ServerScriptService/RPGEnhancements/RPGState",
-        "StarterPlayer/StarterPlayerScripts/RPGEnhancedInterface",
+        "ServerScriptService/RPGEnhancements/CharacterCustomization",
+        "StarterPlayer/StarterPlayerScripts/MedievalCharacterClient",
         "StarterPlayer/StarterPlayerScripts/QuirkMovement",
     }
     missing = sorted(required - new_scripts.keys())
     if missing:
         raise ValueError(f"Added scripts missing: {missing}")
+    if "StarterPlayer/StarterPlayerScripts/RPGEnhancedInterface" in new_scripts:
+        raise ValueError("Removed modern hub unexpectedly remains in the game")
     for path, script in new_scripts.items():
         if path in REPLACEMENTS or path in required:
             if not script.startswith("--!strict"):

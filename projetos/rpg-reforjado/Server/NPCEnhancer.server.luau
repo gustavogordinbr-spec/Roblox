@@ -2,7 +2,10 @@
 local CollectionService = game:GetService("CollectionService")
 local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
-local XPService = require(game:GetService("ReplicatedStorage").Modules:WaitForChild("XPService"))
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local XPService = require(ReplicatedStorage.Modules:WaitForChild("XPService"))
+local QuestService = require(ReplicatedStorage.Modules:WaitForChild("QuestService"))
+local EnemyBrain = require(ReplicatedStorage:WaitForChild("RPGEnhancements"):WaitForChild("EnemyBrain"))
 local tracked = {}
 
 local function classify(model: Model): string
@@ -32,6 +35,10 @@ local function enhance(model: Instance)
 			local enemyLevel = math.max(1, tonumber(model:GetAttribute("EnemyLevel")) or 1)
 			XPService.RewardPlayer(killer, {XP = 18 * enemyLevel, Dinheiro = 6 * enemyLevel})
 		end
+		if killer and killer:IsA("Player") and not humanoid:GetAttribute("QuestProgressCredited") then
+			humanoid:SetAttribute("QuestProgressCredited", true)
+			QuestService.ProgressActive(killer, model:GetAttribute("QuestTarget") or model.Name, 1)
+		end
 		if tier == "Boss" then
 			local event = ServerStorage:FindFirstChild("BossMorto")
 			if creator and creator.Value and event and event:IsA("BindableEvent") then event:Fire(creator.Value, model) end
@@ -47,32 +54,14 @@ local function enhance(model: Instance)
 		task.delay(2, function() tracked[model] = nil end)
 	end)
 	if automatic and not model:FindFirstChild("Follow") and not model:FindFirstChild("AI") then
-		task.spawn(function()
-			local root = model:FindFirstChild("HumanoidRootPart")
-			local attackAt = 0
-			while root and model.Parent and humanoid.Health > 0 do
-				local chosen, distance = nil, 34
-				for _, candidate in ipairs(Players:GetPlayers()) do
-					local character = candidate.Character
-					local candidateRoot = character and character:FindFirstChild("HumanoidRootPart")
-					local candidateHumanoid = character and character:FindFirstChildOfClass("Humanoid")
-					if candidateRoot and candidateHumanoid and candidateHumanoid.Health > 0 then
-						local measured = (root.Position - candidateRoot.Position).Magnitude
-						if measured < distance then chosen, distance = character, measured end
-					end
-				end
-				if chosen then
-					local targetRoot = chosen:FindFirstChild("HumanoidRootPart")
-					local target = chosen:FindFirstChildOfClass("Humanoid")
-					if targetRoot and target and distance < 4.5 and os.clock() - attackAt > 1.15 then
-						attackAt = os.clock()
-						local amount = (model:GetAttribute("EnemyLevel") or 1) * 5 + 12
-						target:TakeDamage(if chosen:GetAttribute("Blocking") then math.floor(amount * .32) else amount)
-					elseif targetRoot then humanoid:MoveTo(targetRoot.Position) end
-				end
-				task.wait(.3)
-			end
-		end)
+		local enemyLevel = math.max(1, tonumber(model:GetAttribute("EnemyLevel")) or 1)
+		EnemyBrain.Bind(model, {
+			Tier = tier, BaseDamage = 12 + enemyLevel * 5,
+			AggroRange = if tier == "Boss" then 55 elseif tier == "Elite" then 45 else 36,
+			ChaseSpeed = if tier == "Boss" then 18 elseif tier == "Elite" then 17 else 15,
+			LeashRange = if tier == "Boss" then 115 else 85,
+			AttackCooldown = if tier == "Boss" then .88 else 1.12,
+		})
 	end
 end
 

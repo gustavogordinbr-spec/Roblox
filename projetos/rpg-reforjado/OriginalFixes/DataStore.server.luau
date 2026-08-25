@@ -2,16 +2,19 @@
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local STORE_NAME, VERSION, RETRIES, AUTOSAVE_INTERVAL = "RPG_PLAYER_DATA", 4, 4, 75
+local STORE_NAME, VERSION, RETRIES, AUTOSAVE_INTERVAL = "RPG_PLAYER_DATA", 5, 4, 60
 local cache, loadedSafely, saving = {}, {}, {}
 
 local template = {
 	Meta = {Version = VERSION, FirstJoin = 0, LastSave = 0},
-	Identidade = {Raca = "Humano", Classe = "Noone"},
-	Progressao = {Level = 1, XP = 0, AttributePoints = 0, PlayerRank = "D", AllocatedStats = {}},
+	Identidade = {
+		Raca = "Unassigned", Classe = "Noone", RaceAssigned = false,
+		Appearance = {HairStyle = "Original", HairColor = "Castanho", EyeColor = "Castanho", SkinTone = "Original", Outfit = "Aventureiro", ShowAura = true, ShowRaceCosmetics = true, ShowWings = true, ShowHorns = true},
+	},
+	Progressao = {Level = 1, XP = 0, PlayerRank = "D"},
 	Moedas = {Dinheiro = 0},
 	Config = {VelocidadeMax = 16},
-	Flags = {LimitadorAtivo = false, CompletedQuests = {}},
+	Flags = {LimitadorAtivo = false, CompletedQuests = {}, ActiveQuestId = "", ActiveQuestProgress = 0, RaceSpins = 3, RacePityEpic = 0, RacePityLegendary = 0, TotalRaceSpins = 0, LastRaceGift = 0, CustomizationComplete = false},
 }
 
 local function deepCopy(value: any, seen: {[any]: any}?): any
@@ -61,20 +64,34 @@ local function load(player: Player)
 	cache[player] = data
 	loadedSafely[player] = ok
 	if not ok then warn("[RPG/Data] Carregamento indisponível; salvamento protegido para", player.Name, saved) end
-	setIfValid(player, "Raca", data.Identidade.Raca, "Humano")
+	setIfValid(player, "Raca", data.Identidade.Raca, "Unassigned")
 	setIfValid(player, "Classe", data.Identidade.Classe, "Noone")
+	setIfValid(player, "RaceAssigned", data.Identidade.RaceAssigned, false)
 	setIfValid(player, "Level", math.max(1, tonumber(data.Progressao.Level) or 1), 1)
 	setIfValid(player, "XP", math.max(0, tonumber(data.Progressao.XP) or 0), 0)
-	setIfValid(player, "AttributePoints", math.max(0, tonumber(data.Progressao.AttributePoints) or 0), 0)
 	setIfValid(player, "PlayerRank", data.Progressao.PlayerRank, "D")
 	setIfValid(player, "Dinheiro", math.max(0, tonumber(data.Moedas.Dinheiro) or 0), 0)
 	setIfValid(player, "VelocidadeMax", tonumber(data.Config.VelocidadeMax) or 16, 16)
 	setIfValid(player, "LimitadorAtivo", data.Flags.LimitadorAtivo, false)
-	for stat, value in pairs(data.Progressao.AllocatedStats) do
-		if type(stat) == "string" and type(value) == "number" then player:SetAttribute("Allocated_" .. stat, math.clamp(value, 0, 250)) end
+	setIfValid(player, "RaceSpins", math.max(0, tonumber(data.Flags.RaceSpins) or 0), 0)
+	setIfValid(player, "RacePityEpic", math.max(0, tonumber(data.Flags.RacePityEpic) or 0), 0)
+	setIfValid(player, "RacePityLegendary", math.max(0, tonumber(data.Flags.RacePityLegendary) or 0), 0)
+	setIfValid(player, "TotalRaceSpins", math.max(0, tonumber(data.Flags.TotalRaceSpins) or 0), 0)
+	setIfValid(player, "LastRaceGift", math.max(0, tonumber(data.Flags.LastRaceGift) or 0), 0)
+	setIfValid(player, "CustomizationComplete", data.Flags.CustomizationComplete, false)
+	for name, default in pairs(template.Identidade.Appearance) do
+		local value = data.Identidade.Appearance[name]
+		setIfValid(player, "Appearance_" .. name, value, default)
+	end
+	if type(data.Flags.ActiveQuestId) == "string" and data.Flags.ActiveQuestId ~= "" then
+		player:SetAttribute("RestoredQuestId", data.Flags.ActiveQuestId)
+		player:SetAttribute("RestoredQuestProgress", math.max(0, tonumber(data.Flags.ActiveQuestProgress) or 0))
 	end
 	for questId, completed in pairs(data.Flags.CompletedQuests) do
-		if completed == true and type(questId) == "string" then player:SetAttribute(questId .. "_AlreadyCompleted", true) end
+		if completed == true and type(questId) == "string" then
+			player:SetAttribute(questId .. "_AlreadyCompleted", true)
+			player:SetAttribute(string.gsub(questId, "^quest_", "Quest_") .. "_Completed", true)
+		end
 	end
 	player:SetAttribute("RPGDataLoaded", true)
 end
@@ -83,18 +100,27 @@ local function snapshot(player: Player)
 	local data = cache[player]
 	if not data then return nil end
 	data.Meta.Version, data.Meta.LastSave = VERSION, os.time()
-	data.Identidade.Raca = player:GetAttribute("Raca") or "Humano"
+	data.Identidade.Raca = player:GetAttribute("Raca") or "Unassigned"
 	data.Identidade.Classe = player:GetAttribute("Classe") or "Noone"
+	data.Identidade.RaceAssigned = player:GetAttribute("RaceAssigned") == true
+	for name, default in pairs(template.Identidade.Appearance) do
+		local value = player:GetAttribute("Appearance_" .. name)
+		data.Identidade.Appearance[name] = if type(value) == type(default) then value else default
+	end
 	data.Progressao.Level = math.max(1, player:GetAttribute("Level") or 1)
 	data.Progressao.XP = math.max(0, player:GetAttribute("XP") or 0)
-	data.Progressao.AttributePoints = math.max(0, player:GetAttribute("AttributePoints") or 0)
 	data.Progressao.PlayerRank = player:GetAttribute("PlayerRank") or "D"
 	data.Moedas.Dinheiro = math.max(0, player:GetAttribute("Dinheiro") or 0)
 	data.Config.VelocidadeMax = player:GetAttribute("VelocidadeMax") or 16
 	data.Flags.LimitadorAtivo = player:GetAttribute("LimitadorAtivo") == true
-	for _, stat in ipairs({"Forca", "Agilidade", "Vitalidade", "Energia", "Sorte"}) do
-		data.Progressao.AllocatedStats[stat] = math.max(0, player:GetAttribute("Allocated_" .. stat) or 0)
-	end
+	data.Flags.ActiveQuestId = player:GetAttribute("ActiveQuestId") or ""
+	data.Flags.ActiveQuestProgress = math.max(0, tonumber(player:GetAttribute("ActiveQuestProgress")) or 0)
+	data.Flags.RaceSpins = math.max(0, tonumber(player:GetAttribute("RaceSpins")) or 0)
+	data.Flags.RacePityEpic = math.max(0, tonumber(player:GetAttribute("RacePityEpic")) or 0)
+	data.Flags.RacePityLegendary = math.max(0, tonumber(player:GetAttribute("RacePityLegendary")) or 0)
+	data.Flags.TotalRaceSpins = math.max(0, tonumber(player:GetAttribute("TotalRaceSpins")) or 0)
+	data.Flags.LastRaceGift = math.max(0, tonumber(player:GetAttribute("LastRaceGift")) or 0)
+	data.Flags.CustomizationComplete = player:GetAttribute("CustomizationComplete") == true
 	for index = 1, 16 do
 		local id = string.format("quest_%03d", index)
 		if player:GetAttribute(id .. "_AlreadyCompleted") then data.Flags.CompletedQuests[id] = true end

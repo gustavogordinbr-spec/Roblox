@@ -5,7 +5,6 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local action = remotes:WaitForChild("RPGAction")
 local Config = require(ReplicatedStorage:WaitForChild("RPGEnhancements"):WaitForChild("EnhancementConfig"))
 local Classes = require(ReplicatedStorage.Modules:WaitForChild("Classes"))
-local allowedStats = {Forca = true, Agilidade = true, Vitalidade = true, Energia = true, Sorte = true}
 local dashAt, requestAt = {}, {}
 
 local function notify(player: Player, title: string, message: string, kind: string)
@@ -52,13 +51,6 @@ action.OnServerEvent:Connect(function(player: Player, kind: any, value: any)
 		local character = player.Character
 		if character then character:SetAttribute("Blocking", value); player:SetAttribute("Blocking", value) end
 	elseif kind == "SelectClass" then selectClass(player, value)
-	elseif kind == "AllocateStat" and type(value) == "string" and allowedStats[value] then
-		local points = player:GetAttribute("AttributePoints") or 0
-		local allocated = player:GetAttribute("Allocated_" .. value) or 0
-		if points > 0 and allocated < Config.Progression.MaximumAllocatedPerStat then
-			player:SetAttribute("AttributePoints", points - 1)
-			player:SetAttribute("Allocated_" .. value, allocated + 1)
-		end
 	end
 end)
 

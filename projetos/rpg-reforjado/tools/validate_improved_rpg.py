@@ -115,9 +115,40 @@ def main() -> None:
     require('GetAttribute("RPGSwordController")', sword, "duplicate sword-script guard missing")
     npc = read("Server/NPCEnhancer.server.luau")
     require("template:Clone()", npc, "quest enemy respawn missing")
+    require('GetAttribute("QuestProgressCredited")', npc, "duplicate quest-credit protection missing")
     datastore = read("OriginalFixes/DataStore.server.luau")
     require("deepCopy(template)", datastore, "deep-copy data isolation missing")
     require("not loadedSafely[player]", datastore, "failed-load save protection missing")
+    require("ActiveQuestProgress", datastore, "active quest progress persistence missing")
+    require("CustomizationComplete", datastore, "appearance persistence missing")
+    customization = read("Server/CharacterCustomization.server.luau")
+    for marker, purpose in (
+        ('"RaceAssigned"', "birth race assignment missing"),
+        ('"RollRace"', "server-authoritative race selection missing"),
+        ('"RPGCosmetics"', "visible race cosmetics missing"),
+        ("GuaranteedLegendaryAt", "legendary race pity missing"),
+        ("Appearance.IsValid", "appearance input validation missing"),
+    ):
+        require(marker, customization, purpose)
+    appearance = read("Shared/CharacterAppearance.luau")
+    require("Appearance.RaceAccents", appearance, "per-race cosmetic identity missing")
+    brain = read("Shared/EnemyBrain.luau")
+    for marker in ("PathfindingService", "Investigando", "alertAllies", "AttackTelegraph", "LeashRange"):
+        require(marker, brain, f"advanced enemy behavior missing: {marker}")
+    interface = read("Client/RPGInterface.client.luau")
+    require('"MedievalCharacterCodex"', interface, "medieval customization codex missing")
+    require('"ViewportFrame"', interface, "three-dimensional character preview missing")
+    require("progressão automática".lower(), interface.lower(), "automatic progression explanation missing")
+    if any(marker in interface for marker in ('"ActionBar"', '"Profile"', '"AllocateStat"', "Enum.Font.Gotham")):
+        raise ValueError("Regression: modern hub or manually allocated attributes returned")
+    if any(marker in controller + xp + datastore for marker in ("Allocated_", "AttributePoints")):
+        raise ValueError("Regression: manual attribute progression returned")
+    weights = re.search(r"Racas\.RarityWeights\s*=\s*\{([^}]+)\}", races)
+    if not weights:
+        raise ValueError("Race rarity weights were not found")
+    percentages = [float(number) for number in re.findall(r"=\s*(\d+(?:\.\d+)?|\.\d+)", weights.group(1))]
+    if abs(sum(percentages) - 100) > 1e-9:
+        raise ValueError(f"Race rarity percentages do not sum to 100: {sum(percentages)}")
 
     print(
         json.dumps(
@@ -128,7 +159,8 @@ def main() -> None:
                 "classes": class_count,
                 "races": race_count,
                 "quests": quest_count,
-                "regression_checks": 10,
+                "race_rarity_probability_total": sum(percentages),
+                "regression_checks": 28,
             },
             indent=2,
         )
